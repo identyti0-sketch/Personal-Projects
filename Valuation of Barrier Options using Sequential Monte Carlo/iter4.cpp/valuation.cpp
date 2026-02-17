@@ -9,7 +9,7 @@ Valuation::Valuation(string& filename) {
     U = log(U);
     L = log(L);
     double sigma = sigmaYearly * sqrt(T / N);
-    gen = mt19937(random_device{}());  
+    gen = mt19937_64(random_device{}());  
     dist = normal_distribution<double>(0, sigma);
 }
 
@@ -60,6 +60,28 @@ void Valuation::runSimulation(struct result& res) {}
 
 double Valuation::getDrift()  {
     return (r - 0.5 * sigmaYearly * sigmaYearly) * (T / N) + dist(gen);
+}
+
+double Valuation::updateweight(double price, double prevPrice) {
+    double doubleVar = 2* (sigmaYearly*sigmaYearly*T/N);
+    double priceDiff = price - prevPrice;
+    double barrierDist = 2*(U - L);
+    double distToUpper = 2*(U - prevPrice);
+    double distToLower = 2*(prevPrice - L);
+    
+    auto brownianBridge = [](double z, double x, double doubleVar) {
+        return exp(- z*(z - 2*x)/doubleVar);
+    };
+
+    double sum = 1.0;
+    int precision = 4 + 3/(log2(N)/3 + 1) ;
+    for (int i = 1; i < precision; i++) {
+        sum -= brownianBridge(barrierDist*i - distToLower, priceDiff, doubleVar)
+                + brownianBridge(-barrierDist*i + distToUpper, priceDiff, doubleVar);
+        sum += brownianBridge(barrierDist*i, priceDiff, doubleVar)
+                + brownianBridge(-barrierDist*i, priceDiff, doubleVar);
+    }
+    return sum;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -161,10 +183,7 @@ bool ValuationSemiContinuousSMC::ifHitBarrier(double price, double prevPrice) {
     if (price >= U || price <= L) {
         return true;
     }
-    double var = (sigmaYearly*sigmaYearly*T/N);
-    double brownianBridgeLower = exp(- 2*(price - L)*(prevPrice - L)/var);
-    double brownianBridgeUpper = exp(- 2*(price - U )*(prevPrice - U)/var);
-    return brownianBridgeLower + brownianBridgeUpper - brownianBridgeLower * brownianBridgeUpper > (double)rand() / RAND_MAX;
+    return updateweight(price, prevPrice) < (double)rand() / RAND_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -206,13 +225,6 @@ void ValuationContinuousSMC::increment(vector<int>& alive, vector<int>& dead) {
     }
 }
 
-double ValuationContinuousSMC::updateweight(double price, double prevPrice) {
-    double var = (sigmaYearly*sigmaYearly*T/N);
-    double brownianBridgeLower = exp(- 2*(price - L)*(prevPrice - L)/var);
-    double brownianBridgeUpper = exp(- 2*(U - price)*(U - prevPrice)/var);
-    double interpolate = exp(- 0.1525*(U - L)*(U - L)/var);
-    return 1.0 - brownianBridgeLower - brownianBridgeUpper + interpolate * brownianBridgeLower * brownianBridgeUpper;
-}
 
 void ValuationContinuousSMC::resample(vector<int>& alive, vector<int>& dead) {
     vector<double> randVec = getRandomVector(dead.size(), totalWeight);
@@ -238,7 +250,7 @@ void ValuationContinuousSMC::resample(vector<int>& alive, vector<int>& dead) {
 
 vector<double> getRandomVector(int n, double max) {
     vector<double> vec;
-    mt19937 rng(std::random_device{}());
+    mt19937_64 rng(std::random_device{}());
     uniform_real_distribution<double> dist(0.0, 1.0);
     getRandomHelper(vec, n, max, 0.0, rng, dist);
     return vec;
@@ -246,7 +258,7 @@ vector<double> getRandomVector(int n, double max) {
 
 
 void getRandomHelper(vector<double>& vec, int n, double max, double min,
-      mt19937& rng, uniform_real_distribution<double>& dist) {
+      mt19937_64& rng, uniform_real_distribution<double>& dist) {
     if (n <= 0) {
         return;
     }
