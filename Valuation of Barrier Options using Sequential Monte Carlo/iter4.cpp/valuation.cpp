@@ -74,8 +74,7 @@ double Valuation::updateweight(double price, double prevPrice) {
     };
 
     double sum = 1.0;
-    int precision = 4 + 3/(log2(N)/3 + 1) ;
-    for (int i = 1; i < precision; i++) {
+    for (int i = 1; i < 4; i++) {
         sum -= brownianBridge(barrierDist*i - distToLower, priceDiff, doubleVar)
                 + brownianBridge(-barrierDist*i + distToUpper, priceDiff, doubleVar);
         sum += brownianBridge(barrierDist*i, priceDiff, doubleVar)
@@ -201,48 +200,48 @@ void ValuationContinuousSMC::runSimulation(struct result& res) {
 }
 
 void ValuationContinuousSMC::step() {
-    vector<int> alive;
-    vector<int> dead;
+    vector<Particle *> alive;
+    vector<Particle *> dead;
 
     increment(alive, dead);    
     resample(alive, dead);
 }
 
 
-void ValuationContinuousSMC::increment(vector<int>& alive, vector<int>& dead) {
+void ValuationContinuousSMC::increment(vector<Particle *>& alive, vector<Particle *>& dead) {
     totalWeight = 0.0;
-    for (int i = 0; i < particles.size(); i++) {
-        double prev = particles[i].p;
-        particles[i].p += getDrift();   
-        if (ifHitBarrier(particles[i].p)) {
-            particles[i].w = 0.0;
-            dead.push_back(i);
+    for (Particle& particle : particles) {
+        double prev = particle.p;
+        particle.p += getDrift();   
+        if (ifHitBarrier(particle.p)) {
+            particle.w = 0.0;
+            dead.push_back(&particle);
         } else {
-            particles[i].w *= updateweight(particles[i].p, prev);
-            alive.push_back(i);
-            totalWeight += particles[i].w;
+            particle.w *= updateweight(particle.p, prev);
+            alive.push_back(&particle);
+            totalWeight += particle.w;
         }
     }
 }
 
 
-void ValuationContinuousSMC::resample(vector<int>& alive, vector<int>& dead) {
+void ValuationContinuousSMC::resample(vector<Particle *>& alive, vector<Particle *>& dead) {
     vector<double> randVec = getRandomVector(dead.size(), totalWeight);
     int i = 0;
     double low = 0.0;
-    for (int k : alive) {
-        low += particles[k].w;
+    for (Particle *p : alive) {
+        low += p->w;
         int copies = 0;
         while (i < randVec.size() && randVec[i] <= low) {
-            particles[dead[i]] = particles[k];
+            *dead[i] = *p;
             copies++;
             i++;
         }
         if (copies > 0) {
-            double newWeight = particles[k].w / (copies + 1);
-            particles[k].w = newWeight;
+            double newWeight = p->w / (copies + 1);
+            p->w = newWeight;
             for (int j = i - copies; j < i; j++) {
-                particles[dead[j]].w = newWeight;
+                dead[j]->w = newWeight;
             }
         }
     }
@@ -274,4 +273,24 @@ double ValuationContinuousSMC::getPayoff() {
         sum += max(0.0, exp(particle.p) - K)*particle.w;
     }
     return sum / particles.size();
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+double ValuationContinuousMC::simulatePrice(bool& survived) {
+    double value = S0;
+    vector<double> pricePath = vector<double>(N + 1);
+    for (int i = 0; i < N; i++) {
+        pricePath[i] = value;
+        value += getDrift();     
+        if (ifHitBarrier(value)) {
+            survived = false;
+            return 0.0;
+        }
+    }
+    pricePath[N] = value;
+    double weight = 1.0;
+    for (int i = 0; i < N; i++) {
+        weight *= updateweight(pricePath[i + 1], pricePath[i]);
+    }
+    return max(exp(value) - K, 0.0) * weight;
 }

@@ -94,14 +94,21 @@ class ValuationSemiContinuousSMC : public ValuationSMC {
 class ValuationMC : public Valuation {
 public:
     using Valuation::Valuation;
-private:
+protected:
     void runSimulation(struct result& res);
     
-    double simulatePrice(bool& survived);
+    virtual double simulatePrice(bool& survived);
 
 };
 
-#endif
+class ValuationContinuousMC : public ValuationMC {
+public:
+    using ValuationMC::ValuationMC;
+private:
+    double simulatePrice(bool& survived) override;
+};
+
+
 
 
 class ValuationContinuousSMC : public Valuation {
@@ -126,12 +133,12 @@ private:
     // moves the particles one step forward, updates the survival rate and resamples the particles
     void step();
 
-    void increment(vector<int>& alive, vector<int>& dead);
+    void increment(vector<Particle *>& alive, vector<Particle *>& dead);
 
     
     // randomly (proportionally weighted distribution) copy living particles onto dead particles.
     // returns totalweight/newtotalweight
-    void resample(vector<int>& alive, vector<int>& dead);
+    void resample(vector<Particle *>& alive, vector<Particle *>& dead);
 
 
     
@@ -146,3 +153,5 @@ vector<double> getRandomVector(int n, double max);
 
 void getRandomHelper(vector<double>& randoms, int n, double max, double min,
     mt19937_64& rng, uniform_real_distribution<double>& dist);
+
+#endif
