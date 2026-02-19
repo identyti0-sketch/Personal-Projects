@@ -25,8 +25,13 @@ void Valuation::repeatExperiment(int n) {
     double averagePrice = accumulate(res.price.begin(), res.price.end(), 0.0) / res.price.size();
     double averageSurvivalRate = accumulate(res.survivalRate.begin(), res.survivalRate.end(), 0.0) / res.survivalRate.size();
     double standardErr = stdErr(res, averagePrice);
-    cout <<"N: " << N << " Average Price: " << averagePrice << " Average Survival Rate: " << averageSurvivalRate <<
-        " Stderr: " << standardErr << "% Time: " << elapsedTime << "s" << endl;
+    ofstream out("output.csv", ios::app);
+    if (!out) {
+        cerr << "Error opening file!\n";
+        return;
+    }
+    out << N << "," << averagePrice << "," << averageSurvivalRate << "," << standardErr << "," << elapsedTime << endl;
+    out.close();
 }
 
 void Valuation::updateSteps(int steps) {
@@ -140,7 +145,7 @@ void ValuationMC::runSimulation(struct result& res) {
     double averagePrice = 0.0;
     double survivalCount = 0.0;
     for (int i = 0; i < M; i++) {
-        bool survived = true;
+        double survived = 1.0;
         averagePrice += simulatePrice(survived);
         survivalCount += survived;
     }
@@ -149,12 +154,12 @@ void ValuationMC::runSimulation(struct result& res) {
     res.survivalRate.push_back(survivalCount / M);
 }
 
-double ValuationMC::simulatePrice(bool& survived) {
+double ValuationMC::simulatePrice(double& survived) {
     double value = S0;
     for (int i = 0; i < N; i++) {
         value += getDrift();     
         if (ifHitBarrier(value)) {
-            survived = false;
+            survived = 0.0;
             return 0.0;
         }
     }
@@ -276,21 +281,20 @@ double ValuationContinuousSMC::getPayoff() {
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-double ValuationContinuousMC::simulatePrice(bool& survived) {
+double ValuationContinuousMC::simulatePrice(double& survived) {
     double value = S0;
     vector<double> pricePath = vector<double>(N + 1);
     for (int i = 0; i < N; i++) {
         pricePath[i] = value;
         value += getDrift();     
         if (ifHitBarrier(value)) {
-            survived = false;
+            survived = 0.0;
             return 0.0;
         }
     }
     pricePath[N] = value;
-    double weight = 1.0;
     for (int i = 0; i < N; i++) {
-        weight *= updateweight(pricePath[i + 1], pricePath[i]);
+        survived *= updateweight(pricePath[i + 1], pricePath[i]);
     }
-    return max(exp(value) - K, 0.0) * weight;
+    return max(exp(value) - K, 0.0) * survived;
 }

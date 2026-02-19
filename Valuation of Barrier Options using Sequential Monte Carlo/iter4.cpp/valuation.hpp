@@ -97,7 +97,7 @@ public:
 protected:
     void runSimulation(struct result& res);
     
-    virtual double simulatePrice(bool& survived);
+    virtual double simulatePrice(double& survived);
 
 };
 
@@ -105,7 +105,7 @@ class ValuationContinuousMC : public ValuationMC {
 public:
     using ValuationMC::ValuationMC;
 private:
-    double simulatePrice(bool& survived) override;
+    double simulatePrice(double& survived) override;
 };
 
 
