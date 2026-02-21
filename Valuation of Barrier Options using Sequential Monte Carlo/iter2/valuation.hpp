@@ -1,5 +1,5 @@
-#ifndef VALUATION_ITER2
-#define VALUATION_ITER2
+#ifndef VALUATION
+#define VALUATION
 
 #include <iostream>
 #include <vector>

@@ -1,5 +1,5 @@
 #include <ctime>
-#include "valuation_iter2.hpp"
+#include "valuation.hpp"
 
 Valuation::Valuation(string& filename) {
     ifstream file(filename);
