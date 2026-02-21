@@ -4,7 +4,7 @@ This repository contains a C++ implementation of barrier option pricing using **
 
 Shevchenko, P. V., & Del Moral, P. (2014). *Valuation of Barrier Options using Sequential Monte Carlo*.
 
-The implementation simulates asset price paths under risk-neutral geometric Brownian motion and improves accuracy over standard Monte Carlo using Brownian bridge correction and particle resampling.
+The implementation simulates asset price paths under risk-neutral geometric Brownian motion and improves accuracy over standard Monte Carlo using Brownian bridge correction and asset instance resampling.
 
 ---
 
