@@ -1,4 +1,4 @@
-#Iteration 1: Basic Proof of concept 
+# Iteration 1: Basic Proof of concept 
 Implemented a basic Sequential Monte Carlo (SMC) simulation with discrete monitoring, where the the parameters are set to the scenario described in chapter 6.
 
 The process is as given:
