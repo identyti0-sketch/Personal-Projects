@@ -81,15 +81,6 @@ protected:
 };
 
 
-class ValuationSemiContinuousSMC : public ValuationSMC {
-    public:
-    using ValuationSMC::ValuationSMC;
-    private:
-    void increment(vector<int>& alive, vector<int>& dead) override;
-
-    bool ifHitBarrier(double price, double prevPrice);
-
-};
 
 class ValuationMC : public Valuation {
 public:

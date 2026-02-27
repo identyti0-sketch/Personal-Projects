@@ -171,28 +171,6 @@ double ValuationMC::simulatePrice(double& survived) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void ValuationSemiContinuousSMC::increment(vector<int>& alive, vector<int>& dead) {
-
-    for (int i = 0; i < particles.size(); i++) {
-        double prev = particles[i];
-        particles[i] += getDrift();   
-        if (ifHitBarrier(particles[i], prev)) {
-            dead.push_back(i);
-        } else {
-            alive.push_back(i);
-        }
-    }
-}
-
-bool ValuationSemiContinuousSMC::ifHitBarrier(double price, double prevPrice) {
-    if (price >= U || price <= L) {
-        return true;
-    }
-    return updateweight(price, prevPrice) < (double)rand() / RAND_MAX;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 void ValuationContinuousSMC::runSimulation(struct result& res) {
     particles = vector<Particle>(M, Particle{S0, 1.0});
     totalWeight = M;
