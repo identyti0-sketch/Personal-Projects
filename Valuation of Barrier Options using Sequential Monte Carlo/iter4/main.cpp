@@ -2,7 +2,7 @@
 
 int main() {
     string filename = "example1.txt";
-    ValuationContinuousSMC smc = ValuationContinuousSMC(filename);
+    ValuationContinuousMC smc = ValuationContinuousMC(filename);
     ofstream out("output.csv");
     if (!out) {
         cerr << "Error creating file!\n";

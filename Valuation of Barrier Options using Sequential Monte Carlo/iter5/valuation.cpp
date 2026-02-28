@@ -157,14 +157,23 @@ void ValuationMC::runSimulation(struct result& res) {
 
 double ValuationMC::simulatePrice(double& survived) {
     double value = S0;
+    vector<double> pricePath = vector<double>(N);
     for (int i = 0; i < N; i++) {
-        value += getDrift();     
+        value += getDrift();
+        pricePath[i] = value;
         if (ifHitBarrier(value)) {
             survived = 0.0;
             return 0.0;
         }
     }
-    return max(exp(value) - K, 0.0);
+    double weight = 1.0;
+    if (survived > 0.0) {
+        weight *= updateweight(pricePath[0], S0);
+        for (int i = 1; i < N; i++) {
+            weight *= updateweight(pricePath[i], pricePath[i - 1]);
+        }
+    }
+    return max(exp(value) - K, 0.0) * weight;
 }
 
 
