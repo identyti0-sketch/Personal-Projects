@@ -21,4 +21,5 @@ This project:
 - Explores performance optimisations
 
 ### Requirements
-- C++17 compatible compiler
+- g++ 13.3.0
+
