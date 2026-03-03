@@ -1,7 +1,8 @@
 #include <ctime>
+#include <chrono>
 #include "valuation.hpp"
 
-Valuation::Valuation(string& filename) {
+Valuation::Valuation(string& filename) : gen(random_device{}(), 0) {
     ifstream file(filename);
     
     file >> S0 >> K >> U >> L >> r >> sigmaYearly >> T >> N >> M;
@@ -9,28 +10,28 @@ Valuation::Valuation(string& filename) {
     U = log(U);
     L = log(L);
     double sigma = sigmaYearly * sqrt(T / N);
-    gen = mt19937_64(random_device{}());  
     dist = normal_distribution<double>(0, sigma);
 }
 
 
 void Valuation::repeatExperiment(int n) {
     struct result res;
-    clock_t startTime = clock();
+    auto startTime = chrono::steady_clock::now();
     for (int i = 0; i < n; i++) {
         runSimulation(res);
     }
-    clock_t endTime = clock();
-    double elapsedTime = (endTime - startTime) / (double)CLOCKS_PER_SEC;
+    auto endTime = chrono::steady_clock::now();
+    double elapsedTime = chrono::duration<double>(endTime - startTime).count();
     double averagePrice = accumulate(res.price.begin(), res.price.end(), 0.0) / res.price.size();
     double averageSurvivalRate = accumulate(res.survivalRate.begin(), res.survivalRate.end(), 0.0) / res.survivalRate.size();
     double standardErr = stdErr(res, averagePrice);
+    double efficiency = standardErr * standardErr * elapsedTime;
     ofstream out("output.csv", ios::app);
     if (!out) {
         cerr << "Error opening file!\n";
         return;
     }
-    out << N << "," << averagePrice << "," << averageSurvivalRate << "," << standardErr << "," << elapsedTime << endl;
+    out << N << "," << averagePrice << "," << averageSurvivalRate << "," << standardErr << "," << efficiency << endl;
     out.close();
 }
 
@@ -93,7 +94,9 @@ void ValuationSMC::runSimulation(struct result& res) {
     particles = vector<double>(M, S0);
     double survivalRate = 1.0;
     for (int i = 0; i < N; i++) {
-        step(survivalRate);
+        if (step(survivalRate)) {
+            break;
+        }
     }
     double discountFactor = exp(-r * T);
     double payoff = getPayoff();
@@ -101,13 +104,17 @@ void ValuationSMC::runSimulation(struct result& res) {
     res.survivalRate.push_back(survivalRate);
 }
 
-void ValuationSMC::step(double& survivalRate) {
+bool ValuationSMC::step(double& survivalRate) {
     vector<int> alive;
     vector<int> dead;
 
     increment(alive, dead);    
     survivalRate *= (double)alive.size() / particles.size();
+    if (alive.size() == 0) {
+        return true;
+    }
     resample(alive, dead);
+    return false;
 }
 
 
@@ -156,23 +163,14 @@ void ValuationMC::runSimulation(struct result& res) {
 
 double ValuationMC::simulatePrice(double& survived) {
     double value = S0;
-    vector<double> pricePath = vector<double>(N);
     for (int i = 0; i < N; i++) {
         value += getDrift();
-        pricePath[i] = value;
         if (ifHitBarrier(value)) {
             survived = 0.0;
             return 0.0;
         }
     }
-    double weight = 1.0;
-    if (survived > 0.0) {
-        weight *= updateweight(pricePath[0], S0);
-        for (int i = 1; i < N; i++) {
-            weight *= updateweight(pricePath[i], pricePath[i - 1]);
-        }
-    }
-    return max(exp(value) - K, 0.0) * weight;
+    return max(exp(value) - K, 0.0);
 }
 
 
@@ -205,7 +203,11 @@ void ValuationContinuousSMC::runSimulation(struct result& res) {
     particles = vector<Particle>(M, Particle{S0, 1.0});
     totalWeight = M;
     for (int i = 0; i < N; i++) {
-        step();
+        if (step()) {
+            res.price.push_back(0.0);
+            res.survivalRate.push_back(0.0);
+            return;
+        }
     }
     double discountFactor = exp(-r * T);
     double payoff = getPayoff();
@@ -213,12 +215,16 @@ void ValuationContinuousSMC::runSimulation(struct result& res) {
     res.survivalRate.push_back(totalWeight / M);
 }
 
-void ValuationContinuousSMC::step() {
+bool ValuationContinuousSMC::step() {
     vector<Particle *> alive;
     vector<Particle *> dead;
 
     increment(alive, dead);    
+    if (alive.size() == 0) {
+        return true;
+    }
     resample(alive, dead);
+    return false;
 }
 
 
@@ -262,8 +268,8 @@ void ValuationContinuousSMC::resample(vector<Particle *>& alive, vector<Particle
 }
 
 vector<double> getRandomVector(int n, double max) {
-    vector<double> vec;
-    mt19937_64 rng(std::random_device{}());
+    vector<double> vec(n);
+    openrand::Philox rng(random_device{}(), 0);
     uniform_real_distribution<double> dist(0.0, 1.0);
     getRandomHelper(vec, n, max, 0.0, rng, dist);
     return vec;
@@ -271,15 +277,21 @@ vector<double> getRandomVector(int n, double max) {
 
 
 void getRandomHelper(vector<double>& vec, int n, double max, double min,
-      mt19937_64& rng, uniform_real_distribution<double>& dist) {
+      openrand::Philox& rng, uniform_real_distribution<double>& dist) {
     if (n <= 0) {
         return;
     }
 
-    double val = min + (max - min)*(1.0 - pow(dist(rng), 1.0 / n));
-    vec.push_back(val);
-    getRandomHelper(vec, n - 1, max, val, rng, dist);
+    int i = 0;
+    while (n > 0) {
+        double val = min + (max - min)*(1.0 - pow(dist(rng), 1.0 / n));
+        vec[i] = val;
+        i++;
+        n--;
+        min = val;
+    }
 }
+
 
 double ValuationContinuousSMC::getPayoff() {
     double sum = 0.0;

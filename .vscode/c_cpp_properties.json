@@ -3,7 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "/usr/bin/g++"
+                "/usr/bin/g++",
+                "${workspaceFolder}/Valuation of Barrier Options using Sequential Monte Carlo/iter5"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++"

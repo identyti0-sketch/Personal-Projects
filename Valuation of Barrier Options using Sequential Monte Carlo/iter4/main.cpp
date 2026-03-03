@@ -2,13 +2,13 @@
 
 int main() {
     string filename = "example1.txt";
-    ValuationContinuousMC smc = ValuationContinuousMC(filename);
+    ValuationSMC smc = ValuationSMC(filename);
     ofstream out("output.csv");
     if (!out) {
         cerr << "Error creating file!\n";
         return 1;
     }
-    out << "N,Average Price,Average Survival Rate,Standard Error,Time (s)" << endl;
+    out << "N,Average Price,Average Survival Rate,Standard Error,Efficiency" << endl;
     out.close();
     for (int i = 1; i < 200; i*= 2) {
         smc.updateSteps(i);

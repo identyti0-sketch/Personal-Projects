@@ -8,13 +8,25 @@
 #include <cassert>
 #include <fstream>
 #include <numeric>
+#include <omp.h>
+#include "openrand/philox.h"
+#include <memory>
 
 using namespace std;
 
 
+class Rng {
+public: 
+    Rng(uint64_t seed, uint32_t counter, double sigma);
+    double getRand();
+    normal_distribution<double> dist;
+private:
+    openrand::Philox rng;
+};
+
 class Valuation {
 public:
-    Valuation(string& filename);
+    Valuation(const string& filename);
 
     void repeatExperiment(int n);
 
@@ -31,17 +43,20 @@ protected:
     double r;       // risk-neutral drift
     double sigmaYearly; // yearly volatility
     double T;       // time to maturity
+    double sigmaStep; // volatility of the time frame of a step;
     int N;          // number of time steps
     int M;          // number of particles
     int n;          // times to repeat experiment
-    mt19937_64 gen;
+    unsigned int seed;
+    openrand::Philox gen;
     normal_distribution<double> dist;
 
     struct result {
         vector<double> price;
         vector<double> survivalRate;
     };
-
+    static thread_local unique_ptr<Rng> rngEngine;
+    static thread_local bool rngInitialized;
     virtual void runSimulation(struct result& res);
 
     double stdErr(struct result& res, double mean);
@@ -50,6 +65,8 @@ protected:
     bool ifHitBarrier(double price);
 
     double getDrift();
+
+    inline void initRng();
 };
 
 
@@ -67,7 +84,7 @@ protected:
     void runSimulation(struct result& res);
 
     // moves the particles one step forward, updates the survival rate and resamples the particles
-    void step(double& survivalRate);
+    bool step(double& survivalRate);
 
     virtual void increment(vector<int>& alive, vector<int>& dead);
 
@@ -88,7 +105,7 @@ public:
 protected:
     void runSimulation(struct result& res);
     
-    virtual double simulatePrice(double& survived);
+    virtual double simulatePrice(double& survivedg);
 
 };
 
@@ -114,24 +131,24 @@ private:
         double p; // price
         double w; // weight
     };
-    
     double totalWeight;
     vector<Particle> particles;
+    
 
     // runs M simulations of the stock price in parallel
     void runSimulation(struct result& res);
 
     // moves the particles one step forward, updates the survival rate and resamples the particles
-    void step();
+    bool step();
 
-    void increment(vector<Particle *>& alive, vector<Particle *>& dead);
+    int increment(vector<char>& deadMask);
 
-    
+    void unmask(vector<Particle *>& alive, vector<Particle *>& dead, vector<char>& deadMask, vector<double>& prefixSum);    
     // randomly (proportionally weighted distribution) copy living particles onto dead particles.
     // returns totalweight/newtotalweight
-    void resample(vector<Particle *>& alive, vector<Particle *>& dead);
+    void resample(vector<Particle *>& alive, vector<Particle *>& dead, vector<double>& prefixSum);
 
-
+    void partitionResample(vector<Particle *>& alive, vector<Particle *>& dead, vector<double>& randVect, vector<double>& prefixSum, int startEnd[4]);
     
     // calculates the payoff of the option based on the average of the final particle states
     // does not account for the discount factor or the survival rate
@@ -143,6 +160,8 @@ private:
 vector<double> getRandomVector(int n, double max);
 
 void getRandomHelper(vector<double>& randoms, int n, double max, double min,
-    mt19937_64& rng, uniform_real_distribution<double>& dist);
+    openrand::Philox& rng, uniform_real_distribution<double>& dist);
 
+int binSearchSmallestAbove(double target, vector<double>& arr, int low, int high);
+int binSearchGreatestBelow(double target, vector<double>& arr, int low, int high);
 #endif

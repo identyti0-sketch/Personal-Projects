@@ -8,6 +8,7 @@
 #include <cassert>
 #include <fstream>
 #include <numeric>
+#include "openrand/philox.h"
 
 using namespace std;
 
@@ -34,7 +35,7 @@ protected:
     int N;          // number of time steps
     int M;          // number of particles
     int n;          // times to repeat experiment
-    mt19937_64 gen;
+    openrand::Philox gen;
     normal_distribution<double> dist;
 
     struct result {
@@ -67,7 +68,7 @@ protected:
     void runSimulation(struct result& res);
 
     // moves the particles one step forward, updates the survival rate and resamples the particles
-    void step(double& survivalRate);
+    bool step(double& survivalRate);
 
     virtual void increment(vector<int>& alive, vector<int>& dead);
 
@@ -131,7 +132,7 @@ private:
     void runSimulation(struct result& res);
 
     // moves the particles one step forward, updates the survival rate and resamples the particles
-    void step();
+    bool step();
 
     void increment(vector<Particle *>& alive, vector<Particle *>& dead);
 
@@ -152,6 +153,6 @@ private:
 vector<double> getRandomVector(int n, double max);
 
 void getRandomHelper(vector<double>& randoms, int n, double max, double min,
-    mt19937_64& rng, uniform_real_distribution<double>& dist);
+    openrand::Philox& rng, uniform_real_distribution<double>& dist);
 
 #endif
